@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>激活函数 —— 测试联动动态可视化</title>
+  <link rel="stylesheet" href="../shared.css" />
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>激活函数动态图像 + 导数对比</h1>
+    <p>动态游标和梯度消失曲线读取 <code>fixture.json</code>；pytest 使用同一份 fixture 校验 Sigmoid 检查点。</p>
+  </header>
+  <main>
+    <section class="panel">
+      <div class="explain">
+        <div class="explain-item"><b>x 输入值</b><span>拖动滑块会改变当前输入点。不同 x 区间会让激活函数输出和导数发生明显变化。</span></div>
+        <div class="explain-item"><b>Sigmoid / Tanh</b><span>两端饱和时导数接近 0，深层网络中连续相乘会造成梯度消失。</span></div>
+        <div class="explain-item"><b>ReLU</b><span>正区间导数为 1，能缓解梯度消失；负区间导数为 0，可能出现神经元不再更新。</span></div>
+        <div class="explain-item"><b>层数 maxLayers</b><span>层数越深，Sigmoid 最大梯度乘积越快接近 0；图中使用对数坐标展示这种衰减。</span></div>
+      </div>
+      <a class="back-link" href="../">返回可视化入口</a>
+    </section>
+    <section class="panel controls">
+      <button id="play">播放</button>
+      <button id="pause">暂停</button>
+      <button id="reset">重置</button>
+      <input id="slider" type="range" min="0" value="0" />
+      <span class="metric" id="readout"></span>
+      <span class="metric" style="color:#8a96a3;font-size:13px">Space 播放/暂停 · R 重置</span>
+    </section>
+    <section class="panel"><div id="activationPlot" style="height:460px"></div></section>
+    <section class="panel"><div id="vanishingPlot" style="height:320px"></div></section>
+  </main>
+  <script>
+    const fallbackFixture = {
+      domain: {min: -6, max: 6, points: 401},
+      deepGradient: {maxLayers: 30, sigmoidMaxDerivative: 0.25, reluActiveDerivative: 1},
+      gradientCheck: {x: 0, sigmoid: 0.5, sigmoidGradient: 0.25, tolerance: 0.00001}
+    };
+    const sigmoid = x => 1 / (1 + Math.exp(-x));
+    const gelu = x => 0.5 * x * (1 + Math.tanh(Math.sqrt(2 / Math.PI) * (x + 0.044715 * x ** 3)));
+    const numericGrad = (fn, x) => (fn(x + 1e-4) - fn(x - 1e-4)) / 2e-4;
+
+    async function loadFixture() {
+      try {
+        const response = await fetch("fixture.json", {cache: "no-store"});
+        if (!response.ok) throw new Error(response.statusText);
+        return await response.json();
+      } catch {
+        return fallbackFixture;
+      }
+    }
+
+    function range(min, max, points) {
+      return Array.from({length: points}, (_, i) => min + i * (max - min) / (points - 1));
+    }
+
+    loadFixture().then(fixture => {
+      const xs = range(fixture.domain.min, fixture.domain.max, fixture.domain.points);
+      const funcs = [
+        ["sigmoid", x => sigmoid(x), x => sigmoid(x) * (1 - sigmoid(x))],
+        ["tanh", x => Math.tanh(x), x => 1 - Math.tanh(x) ** 2],
+        ["relu", x => Math.max(0, x), x => x > 0 ? 1 : 0],
+        ["gelu", gelu, x => numericGrad(gelu, x)]
+      ];
+      const traces = funcs.flatMap(([name, fn, grad]) => [
+        {x: xs, y: xs.map(fn), name, xaxis: "x", yaxis: "y", mode: "lines"},
+        {x: xs, y: xs.map(grad), name: name + " 导数", xaxis: "x2", yaxis: "y2", mode: "lines", showlegend: false}
+      ]);
+      traces.push({x: [0], y: [sigmoid(0)], name: "动态游标", mode: "markers", marker: {size: 12, color: "#d24b4b"}});
+      traces.push({x: [0], y: [0.25], name: "动态导数", xaxis: "x2", yaxis: "y2", mode: "markers", marker: {size: 12, color: "#d24b4b"}, showlegend: false});
+
+      Plotly.newPlot("activationPlot", traces, {
+        grid: {rows: 1, columns: 2, pattern: "independent"},
+        margin: {t: 28},
+        title: "函数值与导数"
+      }, {responsive: true});
+
+      const layers = Array.from({length: fixture.deepGradient.maxLayers}, (_, i) => i + 1);
+      Plotly.newPlot("vanishingPlot", [
+        {x: layers, y: layers.map(l => fixture.deepGradient.sigmoidMaxDerivative ** l), name: "Sigmoid 最大梯度乘积", mode: "lines+markers"},
+        {x: layers, y: layers.map(l => fixture.deepGradient.reluActiveDerivative ** l), name: "ReLU 激活路径梯度", mode: "lines+markers"}
+      ], {yaxis: {type: "log"}, margin: {t: 28}, title: "深层梯度乘积示意"}, {responsive: true});
+
+      const slider = document.getElementById("slider");
+      slider.max = xs.length - 1;
+      const midIdx = Math.floor(xs.length / 2);
+      let idx = midIdx, timer = null;
+
+      function render() {
+        const x = xs[idx];
+        const s = sigmoid(x);
+        const sg = s * (1 - s);
+        Plotly.restyle("activationPlot", {x: [[x]], y: [[s]]}, [traces.length - 2]);
+        Plotly.restyle("activationPlot", {x: [[x]], y: [[sg]]}, [traces.length - 1]);
+        slider.value = idx;
+        document.getElementById("readout").textContent = `x=${x.toFixed(2)}，Sigmoid=${s.toFixed(4)}，导数=${sg.toFixed(4)}`;
+      }
+
+      document.getElementById("play").onclick = () => {
+        if (timer) return;
+        timer = setInterval(() => { idx = (idx + 4) % xs.length; render(); }, 90);
+      };
+      document.getElementById("pause").onclick = () => { clearInterval(timer); timer = null; };
+      document.getElementById("reset").onclick = () => { idx = midIdx; clearInterval(timer); timer = null; render(); };
+      slider.oninput = event => { idx = Number(event.target.value); render(); };
+
+      document.addEventListener("keydown", e => {
+        if (e.target.tagName === "INPUT") return;
+        if (e.key === " ") {
+          e.preventDefault();
+          if (timer) document.getElementById("pause").click();
+          else document.getElementById("play").click();
+        }
+        if (e.key === "r" || e.key === "R") document.getElementById("reset").click();
+      });
+
+      render();
+    });
+  </script>
+</body>
+</html>

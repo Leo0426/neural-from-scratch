@@ -1,0 +1,29 @@
+{
+  "loss": 1.1228685792256308,
+  "nodes": [
+    {"id": "x", "label": "x", "x": 80, "y": 95, "value": "输入批量 5x3"},
+    {"id": "w1", "label": "W1", "x": 80, "y": 220, "value": "3x4"},
+    {"id": "z1", "label": "z1 = XW1+b1", "x": 270, "y": 155, "value": "5x4"},
+    {"id": "a1", "label": "a1 = tanh(z1)", "x": 460, "y": 155, "value": "5x4"},
+    {"id": "w2", "label": "W2", "x": 460, "y": 265, "value": "4x2"},
+    {"id": "z2", "label": "z2 = a1W2+b2", "x": 650, "y": 155, "value": "5x2"},
+    {"id": "loss", "label": "L = MSE(z2,y)", "x": 820, "y": 155, "value": "1.122869"}
+  ],
+  "links": [["x", "z1"], ["w1", "z1"], ["z1", "a1"], ["a1", "z2"], ["w2", "z2"], ["z2", "loss"]],
+  "steps": [
+    {"id": "loss", "caption": "从损失 L 开始，dL/dL = 1。"},
+    {"id": "z2", "caption": "计算输出层误差 dL/dz2，MSE 会把预测误差按元素分配回 logits。"},
+    {"id": "w2", "caption": "得到输出层权重梯度 dL/dW2，L2 范数为 0.097366。"},
+    {"id": "a1", "caption": "梯度继续传回隐藏层激活 a1。"},
+    {"id": "z1", "caption": "穿过 tanh 导数，得到隐藏层 pre-activation 梯度。"},
+    {"id": "w1", "caption": "得到第一层权重梯度 dL/dW1，L2 范数为 0.193496。"},
+    {"id": "x", "caption": "继续回传到输入 x，用来理解梯度如何穿过整张计算图。"}
+  ],
+  "expectedGradientNorms": {
+    "W1": {"shape": [3, 4], "norm": 0.19349554571094194},
+    "b1": {"shape": [4], "norm": 0.13229698650888042},
+    "W2": {"shape": [4, 2], "norm": 0.09736580356326269},
+    "b2": {"shape": [2], "norm": 0.4413930607296225}
+  },
+  "tolerance": 0.00001
+}

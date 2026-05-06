@@ -1,0 +1,15 @@
+{
+  "domain": {"min": -6, "max": 6, "points": 401},
+  "samplePoints": [-4, -1, 0, 1, 4],
+  "deepGradient": {
+    "maxLayers": 30,
+    "sigmoidMaxDerivative": 0.25,
+    "reluActiveDerivative": 1.0
+  },
+  "gradientCheck": {
+    "x": 0.0,
+    "sigmoid": 0.5,
+    "sigmoidGradient": 0.25,
+    "tolerance": 0.00001
+  }
+}

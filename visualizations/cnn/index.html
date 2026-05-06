@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CNN —— 卷积核滑动动态可视化</title>
+  <link rel="stylesheet" href="../shared.css" />
+  <style>
+    .boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; align-items: start; }
+    .board-title { margin: 0 0 10px; font-size: 16px; font-weight: 650; }
+    .conv-grid { display: grid; gap: 3px; width: min(100%, 360px); aspect-ratio: 1; }
+    .cell { display: grid; place-items: center; border: 1px solid #c9d2dc; font-size: 12px; font-variant-numeric: tabular-nums; background: #fff; }
+    .active { outline: 3px solid #228a5f; outline-offset: -3px; }
+    .output-active { outline: 3px solid #d24b4b; outline-offset: -3px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>卷积核滑动 + 输出特征图</h1>
+    <p>输入矩阵、卷积核和期望输出来自 <code>fixture.json</code>；pytest 使用同一份 fixture 对照 PyTorch conv2d。</p>
+  </header>
+  <main>
+    <section class="panel">
+      <div class="explain">
+        <div class="explain-item"><b>input 输入图像</b><span>绿色高亮区域是当前卷积窗口覆盖的像素。输入局部模式决定输出特征响应。</span></div>
+        <div class="explain-item"><b>kernel 卷积核</b><span>卷积核像一个局部特征检测器。本页的核检测垂直边缘，负值和正值代表边缘方向。</span></div>
+        <div class="explain-item"><b>padding 填充</b><span>边缘补 0 可以保持输出尺寸。padding 变小会让输出图变小，并减少边缘位置响应。</span></div>
+        <div class="explain-item"><b>stride 步长</b><span>步长决定窗口移动距离。stride 越大，输出尺寸越小，动画步数也越少。</span></div>
+      </div>
+      <a class="back-link" href="../">返回可视化入口</a>
+    </section>
+    <section class="panel controls">
+      <button id="play">播放</button>
+      <button id="pause">暂停</button>
+      <button id="reset">重置</button>
+      <input id="slider" type="range" min="0" value="0" />
+      <span class="metric" id="readout"></span>
+      <span class="metric" style="color:#8a96a3;font-size:13px">Space 播放/暂停 · ←→ 逐帧 · R 重置</span>
+    </section>
+    <section class="panel boards">
+      <div><p class="board-title">输入图像</p><div id="input" class="conv-grid"></div></div>
+      <div><p class="board-title">卷积核</p><div id="kernel" class="conv-grid"></div></div>
+      <div><p class="board-title">输出特征图</p><div id="output" class="conv-grid"></div></div>
+    </section>
+  </main>
+  <script>
+    const fallbackFixture = {
+      input: [[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]],
+      kernel: [[1,0,-1],[1,0,-1],[1,0,-1]],
+      padding: 1,
+      stride: 1,
+      expectedOutput: [[0,0,0,0,0,0,0,0],[0,0,-1,-1,1,1,0,0],[0,0,-2,-2,2,2,0,0],[0,0,-3,-3,3,3,0,0],[0,0,-3,-3,3,3,0,0],[0,0,-2,-2,2,2,0,0],[0,0,-1,-1,1,1,0,0],[0,0,0,0,0,0,0,0]]
+    };
+
+    async function loadFixture() {
+      try {
+        const response = await fetch("fixture.json", {cache: "no-store"});
+        if (!response.ok) throw new Error(response.statusText);
+        return await response.json();
+      } catch {
+        return fallbackFixture;
+      }
+    }
+
+    function padded(input, pad) {
+      const h = input.length, w = input[0].length;
+      return Array.from({length: h + 2 * pad}, (_, r) =>
+        Array.from({length: w + 2 * pad}, (_, c) => {
+          const rr = r - pad, cc = c - pad;
+          return rr >= 0 && rr < h && cc >= 0 && cc < w ? input[rr][cc] : 0;
+        })
+      );
+    }
+
+    function convSteps(fixture) {
+      const x = padded(fixture.input, fixture.padding);
+      const k = fixture.kernel;
+      const outH = Math.floor((x.length - k.length) / fixture.stride) + 1;
+      const outW = Math.floor((x[0].length - k[0].length) / fixture.stride) + 1;
+      const steps = [];
+      for (let r = 0; r < outH; r++) {
+        for (let c = 0; c < outW; c++) {
+          let sum = 0;
+          const patch = [];
+          for (let kr = 0; kr < k.length; kr++) {
+            for (let kc = 0; kc < k[0].length; kc++) {
+              const value = x[r * fixture.stride + kr][c * fixture.stride + kc];
+              sum += value * k[kr][kc];
+              patch.push([r + kr - fixture.padding, c + kc - fixture.padding]);
+            }
+          }
+          steps.push({row: r, col: c, value: sum, patch});
+        }
+      }
+      return steps;
+    }
+
+    function drawGrid(el, matrix, className, formatter = v => String(v)) {
+      el.style.gridTemplateColumns = `repeat(${matrix[0].length}, 1fr)`;
+      el.innerHTML = "";
+      matrix.flat().forEach(value => {
+        const cell = document.createElement("div");
+        cell.className = "cell " + className;
+        cell.textContent = formatter(value);
+        cell.dataset.value = value;
+        const tone = value === 0 ? 255 : Math.max(90, 230 - Math.abs(value) * 40);
+        cell.style.background = value >= 0 ? `rgb(${tone}, ${245}, ${tone})` : `rgb(${245}, ${tone}, ${tone})`;
+        el.appendChild(cell);
+      });
+    }
+
+    loadFixture().then(fixture => {
+      const inputEl = document.getElementById("input");
+      const kernelEl = document.getElementById("kernel");
+      const outputEl = document.getElementById("output");
+      drawGrid(inputEl, fixture.input, "input-cell");
+      drawGrid(kernelEl, fixture.kernel, "kernel-cell");
+      drawGrid(outputEl, fixture.expectedOutput, "output-cell");
+      const steps = convSteps(fixture);
+      const slider = document.getElementById("slider");
+      slider.max = steps.length - 1;
+      let idx = 0, timer = null;
+
+      function render() {
+        const step = steps[idx];
+        inputEl.querySelectorAll(".cell").forEach(cell => cell.classList.remove("active"));
+        outputEl.querySelectorAll(".cell").forEach(cell => cell.classList.remove("output-active"));
+        step.patch.forEach(([r, c]) => {
+          if (r < 0 || c < 0 || r >= fixture.input.length || c >= fixture.input[0].length) return;
+          inputEl.children[r * fixture.input[0].length + c].classList.add("active");
+        });
+        outputEl.children[step.row * fixture.expectedOutput[0].length + step.col].classList.add("output-active");
+        slider.value = idx;
+        document.getElementById("readout").textContent = `窗口 (${step.row}, ${step.col})，卷积和 = ${step.value}，测试期望 = ${fixture.expectedOutput[step.row][step.col]}`;
+      }
+
+      document.getElementById("play").onclick = () => {
+        if (timer) return;
+        timer = setInterval(() => { idx = (idx + 1) % steps.length; render(); }, 180);
+      };
+      document.getElementById("pause").onclick = () => { clearInterval(timer); timer = null; };
+      document.getElementById("reset").onclick = () => { idx = 0; clearInterval(timer); timer = null; render(); };
+      slider.oninput = event => { idx = Number(event.target.value); render(); };
+
+      document.addEventListener("keydown", e => {
+        if (e.target.tagName === "INPUT") return;
+        if (e.key === " ") {
+          e.preventDefault();
+          if (timer) document.getElementById("pause").click();
+          else document.getElementById("play").click();
+        }
+        if (e.key === "ArrowRight") { idx = Math.min(steps.length - 1, idx + 1); render(); }
+        if (e.key === "ArrowLeft") { idx = Math.max(0, idx - 1); render(); }
+        if (e.key === "r" || e.key === "R") document.getElementById("reset").click();
+      });
+
+      render();
+    });
+  </script>
+</body>
+</html>

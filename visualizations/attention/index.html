@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Attention 机制 —— Q/K/V 权重热力图</title>
+  <link rel="stylesheet" href="../shared.css" />
+  <style>
+    .attn-layout { display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: 20px; align-items: start; }
+    .attn-matrix { display: grid; gap: 6px; overflow-x: auto; }
+    .attn-row { display: grid; gap: 6px; align-items: center; }
+    .a-label { min-height: 44px; border-radius: 6px; display: grid; place-items: center; font-variant-numeric: tabular-nums; background: #eef3f8; font-weight: 600; }
+    .a-cell { min-height: 44px; border-radius: 6px; display: grid; place-items: center; font-variant-numeric: tabular-nums; border: 1px solid #d9dee7; cursor: default; transition: outline 0.08s; }
+    .a-cell.hl-row { outline: 2px solid rgba(44,123,182,0.4); outline-offset: -2px; }
+    .a-cell.hl-col { outline: 2px solid rgba(44,123,182,0.4); outline-offset: -2px; }
+    .a-cell.hl-both { outline: 3px solid #2c7bb6; outline-offset: -2px; font-weight: 700; }
+    .token-list { display: grid; gap: 8px; }
+    .token { border: 1px solid #d9dee7; border-radius: 8px; padding: 10px 12px; background: #fbfcfd; }
+    .token b { display: block; margin-bottom: 4px; }
+    .token span { font-size: 13px; color: #53616f; }
+    .readout { margin-top: 10px !important; font-size: 13px; min-height: 1.5em; color: #243447; font-variant-numeric: tabular-nums; }
+    .out-layout { display: grid; gap: 6px; overflow-x: auto; }
+    .out-row { display: grid; gap: 6px; align-items: center; }
+    @media (max-width: 760px) { .attn-layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Attention 权重热力图</h1>
+    <p>从 <code>fixture.json</code> 读取 Q、K、V，在浏览器内计算 softmax(Q·Kᵀ / √d_k) 并展示权重分布；悬停单元格可高亮整行（Query）和整列（Key）。</p>
+  </header>
+  <main>
+    <section class="panel">
+      <div class="attn-layout">
+        <div>
+          <h2 style="margin:0 0 12px">Token</h2>
+          <div id="tokens" class="token-list"></div>
+        </div>
+        <div>
+          <h2 style="margin:0 0 12px">Attention(Q, K, V)</h2>
+          <div id="matrix" class="attn-matrix"></div>
+          <p class="readout" id="readout"></p>
+        </div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2 style="margin:0 0 12px">Output = Attention × V</h2>
+      <div id="output" class="out-layout"></div>
+    </section>
+    <section class="panel">
+      <p>颜色越深表示 Query 对该 Key 的注意力越高。测试用例读取同一份 fixture 验证 NumPy 与 PyTorch 权重一致。</p>
+      <a class="back-link" href="../">返回可视化入口</a>
+    </section>
+  </main>
+  <script>
+    const fallback = {
+      tokens: ["我", "喜欢", "机器", "学习"],
+      q: [[1.0,0.0],[0.0,1.0],[1.0,1.0],[0.5,1.0]],
+      k: [[1.0,0.0],[0.0,1.0],[1.0,1.0],[0.5,1.0]],
+      v: [[1.0,0.0],[0.0,1.0],[1.0,1.0],[0.5,1.0]],
+      expectedWeights: [
+        [0.3129638493,0.1543126758,0.3129638493,0.2197596256],
+        [0.1411563050,0.2862812317,0.2862812317,0.2862812317],
+        [0.1834110559,0.1834110559,0.3719787143,0.2611991739],
+        [0.1625559727,0.2314990521,0.3296822030,0.2762627722]
+      ],
+      tolerance: 0.000001
+    };
+
+    async function loadFixture() {
+      try {
+        const r = await fetch("fixture.json", {cache: "no-store"});
+        if (!r.ok) throw new Error(r.statusText);
+        return await r.json();
+      } catch {
+        return fallback;
+      }
+    }
+
+    function transpose(M) { return M[0].map((_, j) => M.map(row => row[j])); }
+    function matmul(A, B) {
+      const Bt = transpose(B);
+      return A.map(row => Bt.map(col => row.reduce((s, v, i) => s + v * col[i], 0)));
+    }
+    function softmax(row) {
+      const max = Math.max(...row);
+      const exp = row.map(v => Math.exp(v - max));
+      const sum = exp.reduce((a, b) => a + b, 0);
+      return exp.map(v => v / sum);
+    }
+    function computeAttention(Q, K, V) {
+      const dk = K[0].length;
+      const scores = matmul(Q, transpose(K)).map(row => row.map(s => s / Math.sqrt(dk)));
+      const weights = scores.map(softmax);
+      return { weights, output: matmul(weights, V) };
+    }
+
+    function attnColor(v) {
+      return `rgba(44,123,182,${Math.min(0.12 + v * 1.7, 0.92)})`;
+    }
+    function outputColor(v) {
+      const a = Math.min(0.12 + Math.abs(v) * 0.6, 0.9);
+      return v >= 0 ? `rgba(40,160,100,${a})` : `rgba(197,84,62,${a})`;
+    }
+
+    loadFixture().then(fixture => {
+      const tokens = fixture.tokens;
+      const n = tokens.length;
+      const { weights, output } = computeAttention(fixture.q, fixture.k, fixture.v);
+
+      // Token list
+      document.getElementById("tokens").innerHTML = tokens.map((t, i) =>
+        `<div class="token"><b>${i}: ${t}</b><span>作为 Query / Key / Value 的位置。</span></div>`
+      ).join("");
+
+      // Attention matrix
+      const matrixEl = document.getElementById("matrix");
+      const colTpl = `64px repeat(${n}, minmax(56px, 1fr))`;
+      const allCells = [];
+
+      const headerRow = document.createElement("div");
+      headerRow.className = "attn-row";
+      headerRow.style.gridTemplateColumns = colTpl;
+      headerRow.innerHTML = `<div></div>${tokens.map(t => `<div class="a-label">${t}</div>`).join("")}`;
+      matrixEl.appendChild(headerRow);
+
+      weights.forEach((row, i) => {
+        const rowDiv = document.createElement("div");
+        rowDiv.className = "attn-row";
+        rowDiv.style.gridTemplateColumns = colTpl;
+        const lbl = document.createElement("div");
+        lbl.className = "a-label";
+        lbl.textContent = tokens[i];
+        rowDiv.appendChild(lbl);
+        row.forEach((w, j) => {
+          const cell = document.createElement("div");
+          cell.className = "a-cell";
+          cell.dataset.row = i;
+          cell.dataset.col = j;
+          cell.style.background = attnColor(w);
+          cell.textContent = w.toFixed(3);
+          allCells.push(cell);
+          rowDiv.appendChild(cell);
+        });
+        matrixEl.appendChild(rowDiv);
+      });
+
+      const readout = document.getElementById("readout");
+      allCells.forEach(cell => {
+        cell.addEventListener("mouseenter", () => {
+          const r = +cell.dataset.row, c = +cell.dataset.col;
+          allCells.forEach(el => {
+            const er = +el.dataset.row, ec = +el.dataset.col;
+            el.classList.toggle("hl-row", er === r && ec !== c);
+            el.classList.toggle("hl-col", ec === c && er !== r);
+            el.classList.toggle("hl-both", er === r && ec === c);
+          });
+          readout.textContent = `"${tokens[r]}" 关注 "${tokens[c]}"：权重 = ${weights[r][c].toFixed(4)}`;
+        });
+        cell.addEventListener("mouseleave", () => {
+          allCells.forEach(el => el.classList.remove("hl-row", "hl-col", "hl-both"));
+          readout.textContent = "";
+        });
+      });
+
+      // Output matrix
+      const outputEl = document.getElementById("output");
+      const dv = fixture.v[0].length;
+      const outColTpl = `64px repeat(${dv}, minmax(80px, 1fr))`;
+
+      const outHeader = document.createElement("div");
+      outHeader.className = "out-row";
+      outHeader.style.gridTemplateColumns = outColTpl;
+      outHeader.innerHTML = `<div></div>${Array.from({length: dv}, (_, i) => `<div class="a-label">dim ${i}</div>`).join("")}`;
+      outputEl.appendChild(outHeader);
+
+      output.forEach((row, i) => {
+        const rowDiv = document.createElement("div");
+        rowDiv.className = "out-row";
+        rowDiv.style.gridTemplateColumns = outColTpl;
+        const lbl = document.createElement("div");
+        lbl.className = "a-label";
+        lbl.textContent = tokens[i];
+        rowDiv.appendChild(lbl);
+        row.forEach(v => {
+          const cell = document.createElement("div");
+          cell.className = "a-cell";
+          cell.style.background = outputColor(v);
+          cell.textContent = v.toFixed(3);
+          rowDiv.appendChild(cell);
+        });
+        outputEl.appendChild(rowDiv);
+      });
+    });
+  </script>
+</body>
+</html>

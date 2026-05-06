@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>neural-from-scratch 可视化入口</title>
+  <link rel="stylesheet" href="./shared.css" />
+  <style>
+    header { padding: 32px 36px 18px; }
+    h1 { font-size: 30px; }
+    main { padding: 24px 36px 40px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .card {
+      display: grid;
+      gap: 10px;
+      min-height: 178px;
+      padding: 18px;
+      border: 1px solid #d9dee7;
+      border-radius: 8px;
+      background: #fff;
+      color: inherit;
+      text-decoration: none;
+    }
+    .card:hover { border-color: #8fb4dc; background: #fbfdff; }
+    .card h2 { margin: 0; font-size: 19px; letter-spacing: 0; }
+    .card p { font-size: 14px; }
+    .meta { align-self: end; color: #243447; font-size: 13px; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>可视化结果入口</h1>
+    <p>所有页面都读取各自目录下的 <code>fixture.json</code>，测试用例也读取同一份数据。修改 fixture 后，动画和测试会同步变化。</p>
+  </header>
+  <main>
+    <section class="grid">
+      <a class="card" href="./gradient_descent/">
+        <h2>03 梯度下降</h2>
+        <p>动态播放 SGD、Momentum、Adam 在同一损失曲面上的轨迹，观察学习率、起点和步数如何影响收敛。</p>
+        <span class="meta">联动 fixture：gradient_descent/fixture.json</span>
+      </a>
+      <a class="card" href="./backprop/">
+        <h2>04 反向传播</h2>
+        <p>按链式法则高亮计算图，从损失节点逐步回传到权重和输入，展示梯度范数含义。</p>
+        <span class="meta">联动 fixture：backprop/fixture.json</span>
+      </a>
+      <a class="card" href="./activation/">
+        <h2>05 激活函数</h2>
+        <p>拖动或播放动态游标，观察输入变化如何影响函数值、导数和深层梯度乘积。</p>
+        <span class="meta">联动 fixture：activation/fixture.json</span>
+      </a>
+      <a class="card" href="./cnn/">
+        <h2>07 卷积操作</h2>
+        <p>播放卷积核滑动过程，查看输入窗口、卷积核、padding、stride 如何决定输出特征图。</p>
+        <span class="meta">联动 fixture：cnn/fixture.json</span>
+      </a>
+      <a class="card" href="./attention/">
+        <h2>09 Attention</h2>
+        <p>展示 Q/K/V 点积缩放后的 softmax 权重矩阵，观察每个 token 如何聚合上下文。</p>
+        <span class="meta">联动 fixture：attention/fixture.json</span>
+      </a>
+      <a class="card" href="./transformer/">
+        <h2>10 Transformer</h2>
+        <p>展示正弦位置编码和 causal mask，理解 Transformer block 中顺序信息和生成约束的来源。</p>
+        <span class="meta">联动 fixture：transformer/fixture.json</span>
+      </a>
+    </section>
+    <section class="panel">
+      <p>启动方式：在项目根目录运行 <code>cd visualizations && python -m http.server 8080</code>，然后打开 <code>http://localhost:8080/</code>。</p>
+    </section>
+  </main>
+</body>
+</html>

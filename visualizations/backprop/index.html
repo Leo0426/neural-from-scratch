@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>反向传播 —— 测试联动动态可视化</title>
+  <link rel="stylesheet" href="../shared.css" />
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>计算图梯度流动动画</h1>
+    <p>节点、梯度范数和播放顺序来自 <code>fixture.json</code>；pytest 使用同一份 fixture 验证手写反向传播。</p>
+  </header>
+  <main>
+    <section class="panel">
+      <div class="explain">
+        <div class="explain-item"><b>loss 损失值</b><span>表示当前预测和目标的差距。损失越大，反向传播回来的误差信号通常越强。</span></div>
+        <div class="explain-item"><b>W1 / W2 权重矩阵</b><span>权重决定层间连接强度。梯度范数越大，本轮训练中该参数被更新的幅度倾向越大。</span></div>
+        <div class="explain-item"><b>tanh 激活</b><span>梯度穿过 tanh 时会乘以导数。输入落在饱和区时，导数变小，底层梯度会衰减。</span></div>
+        <div class="explain-item"><b>传播顺序</b><span>动画从 loss 往输入方向播放，展示链式法则如何逐层复用局部梯度。</span></div>
+      </div>
+      <a class="back-link" href="../">返回可视化入口</a>
+    </section>
+    <section class="panel controls">
+      <button id="next">下一步</button>
+      <button id="auto">自动播放</button>
+      <button id="stop">停止</button>
+      <button id="reset">重置</button>
+      <span class="metric" id="caption"></span>
+      <span class="metric" style="color:#8a96a3;font-size:13px">Space 播放/停止 · → 下一步 · R 重置</span>
+    </section>
+    <section class="panel"><svg viewBox="0 0 900 360" role="img" aria-label="backprop graph"></svg></section>
+  </main>
+  <script>
+    const fallbackFixture = {
+      loss: 1.1228685792256308,
+      nodes: [
+        {id:"x", label:"x", x:80, y:95, value:"输入批量 5x3"}, {id:"w1", label:"W1", x:80, y:220, value:"3x4"},
+        {id:"z1", label:"z1 = XW1+b1", x:270, y:155, value:"5x4"}, {id:"a1", label:"a1 = tanh(z1)", x:460, y:155, value:"5x4"},
+        {id:"w2", label:"W2", x:460, y:265, value:"4x2"}, {id:"z2", label:"z2 = a1W2+b2", x:650, y:155, value:"5x2"},
+        {id:"loss", label:"L = MSE(z2,y)", x:820, y:155, value:"1.122869"}
+      ],
+      links: [["x","z1"], ["w1","z1"], ["z1","a1"], ["a1","z2"], ["w2","z2"], ["z2","loss"]],
+      steps: [
+        {id:"loss", caption:"从损失 L 开始，dL/dL = 1。"}, {id:"z2", caption:"计算输出层误差 dL/dz2。"},
+        {id:"w2", caption:"得到输出层权重梯度。"}, {id:"a1", caption:"梯度继续传回隐藏层激活。"},
+        {id:"z1", caption:"穿过 tanh 导数。"}, {id:"w1", caption:"得到第一层权重梯度。"}, {id:"x", caption:"继续回传到输入。"}
+      ]
+    };
+
+    async function loadFixture() {
+      try {
+        const response = await fetch("fixture.json", {cache: "no-store"});
+        if (!response.ok) throw new Error(response.statusText);
+        return await response.json();
+      } catch {
+        return fallbackFixture;
+      }
+    }
+
+    loadFixture().then(fixture => {
+      const svg = d3.select("svg");
+      const nodeById = Object.fromEntries(fixture.nodes.map(node => [node.id, node]));
+      svg.selectAll("line").data(fixture.links).join("line")
+        .attr("x1", d => nodeById[d[0]].x).attr("y1", d => nodeById[d[0]].y)
+        .attr("x2", d => nodeById[d[1]].x).attr("y2", d => nodeById[d[1]].y)
+        .attr("stroke", "#9aa8b6").attr("stroke-width", 3);
+
+      const g = svg.selectAll("g.node").data(fixture.nodes).join("g")
+        .attr("class", "node").attr("transform", d => `translate(${d.x},${d.y})`);
+      g.append("circle").attr("r", 48).attr("fill", "#fff").attr("stroke", "#8fa1b3").attr("stroke-width", 2);
+      g.append("text").attr("text-anchor", "middle").attr("y", -8).attr("font-size", 14).text(d => d.label);
+      g.append("text").attr("text-anchor", "middle").attr("y", 16).attr("font-size", 13).attr("fill", "#53616f").text(d => d.value);
+
+      let step = 0, timer = null;
+
+      function render() {
+        const activeIds = fixture.steps.slice(0, step + 1).map(item => item.id);
+        const active = new Set(activeIds);
+        g.select("circle").transition().duration(220)
+          .attr("fill", d => active.has(d.id) ? "#d9f0e4" : "#fff")
+          .attr("stroke", d => active.has(d.id) ? "#228a5f" : "#8fa1b3")
+          .attr("r", d => active.has(d.id) ? 53 : 48);
+        svg.selectAll("line").transition().duration(220)
+          .attr("stroke", d => active.has(d[0]) && active.has(d[1]) ? "#228a5f" : "#9aa8b6");
+        document.getElementById("caption").textContent = fixture.steps[step].caption;
+      }
+
+      function resetState() { step = 0; clearInterval(timer); timer = null; render(); }
+
+      document.getElementById("next").onclick = () => { step = (step + 1) % fixture.steps.length; render(); };
+      document.getElementById("auto").onclick = () => {
+        clearInterval(timer);
+        timer = setInterval(() => { step = (step + 1) % fixture.steps.length; render(); }, 900);
+      };
+      document.getElementById("stop").onclick = () => { clearInterval(timer); timer = null; };
+      document.getElementById("reset").onclick = resetState;
+
+      document.addEventListener("keydown", e => {
+        if (e.key === " ") {
+          e.preventDefault();
+          if (timer) document.getElementById("stop").click();
+          else document.getElementById("auto").click();
+        }
+        if (e.key === "ArrowRight") document.getElementById("next").click();
+        if (e.key === "r" || e.key === "R") resetState();
+      });
+
+      render();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transformer —— 位置编码与 Causal Mask</title>
+  <link rel="stylesheet" href="../shared.css" />
+  <style>
+    .two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+    .tf-matrix { display: grid; gap: 5px; overflow-x: auto; }
+    .tf-row { display: grid; gap: 5px; align-items: center; }
+    .tf-cell, .tf-label { min-height: 42px; border-radius: 6px; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+    .tf-label { background: #eef3f8; font-weight: 600; }
+    .tf-cell { border: 1px solid #d9dee7; background: #fbfcfd; }
+    .mask-on { background: #2f855a; color: #fff; }
+    .mask-off { background: #edf0f3; color: #8a96a3; }
+    .mask-hl { outline: 2px solid #1a5c3a; outline-offset: -2px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Transformer 位置编码与 Causal Mask</h1>
+    <p>页面读取 <code>fixture.json</code>，展示正弦位置编码和 Decoder-only 生成中使用的下三角 mask；悬停 mask 行查看该位置可见范围。</p>
+  </header>
+  <main>
+    <section class="two-col">
+      <div class="panel">
+        <h2 style="margin:0 0 12px">Positional Encoding</h2>
+        <div id="pe" class="tf-matrix"></div>
+      </div>
+      <div class="panel">
+        <h2 style="margin:0 0 12px">Causal Mask</h2>
+        <div id="mask" class="tf-matrix"></div>
+        <p id="mask-readout" style="margin-top:10px;font-size:13px;color:#243447;min-height:1.5em"></p>
+      </div>
+    </section>
+    <section class="panel">
+      <p>位置编码为 Self-Attention 提供顺序信息；causal mask 禁止当前位置看到未来 token。测试用例读取同一份 fixture 校验这两部分。</p>
+      <a class="back-link" href="../">返回可视化入口</a>
+    </section>
+  </main>
+  <script>
+    const fallback = {
+      tokens: ["<bos>", "从", "零", "实现", "网络"],
+      sequenceLength: 5,
+      dModel: 6,
+      positionalEncoding: [
+        [0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+        [0.8415, 0.5403, 0.0464, 0.9989, 0.0022, 1.0000],
+        [0.9093, -0.4161, 0.0927, 0.9957, 0.0043, 1.0000],
+        [0.1411, -0.9900, 0.1388, 0.9903, 0.0065, 1.0000],
+        [-0.7568, -0.6536, 0.1846, 0.9828, 0.0086, 1.0000]
+      ],
+      causalMask: [
+        [true,false,false,false,false],
+        [true,true,false,false,false],
+        [true,true,true,false,false],
+        [true,true,true,true,false],
+        [true,true,true,true,true]
+      ],
+      tolerance: 0.000001
+    };
+
+    async function loadFixture() {
+      try {
+        const r = await fetch("fixture.json", {cache: "no-store"});
+        if (!r.ok) throw new Error(r.statusText);
+        return await r.json();
+      } catch {
+        return fallback;
+      }
+    }
+
+    function peColor(v) {
+      const alpha = 0.12 + Math.abs(v) * 0.72;
+      return v >= 0 ? `rgba(44,123,182,${alpha})` : `rgba(197,84,62,${alpha})`;
+    }
+
+    loadFixture().then(fixture => {
+      const tokens = fixture.tokens;
+      const dims = Array.from({length: fixture.dModel}, (_, i) => `d${i}`);
+      const peCols = `78px repeat(${fixture.dModel}, minmax(54px, 1fr))`;
+
+      // Positional Encoding
+      const peEl = document.getElementById("pe");
+
+      const peHeader = document.createElement("div");
+      peHeader.className = "tf-row";
+      peHeader.style.gridTemplateColumns = peCols;
+      peHeader.innerHTML = `<div></div>${dims.map(d => `<div class="tf-label">${d}</div>`).join("")}`;
+      peEl.appendChild(peHeader);
+
+      fixture.positionalEncoding.forEach((row, i) => {
+        const rowDiv = document.createElement("div");
+        rowDiv.className = "tf-row";
+        rowDiv.style.gridTemplateColumns = peCols;
+        rowDiv.innerHTML = `<div class="tf-label">${tokens[i]}</div>` +
+          row.map(v => `<div class="tf-cell" style="background:${peColor(v)}">${v.toFixed(2)}</div>`).join("");
+        peEl.appendChild(rowDiv);
+      });
+
+      // Causal Mask with hover
+      const maskEl = document.getElementById("mask");
+      const maskReadout = document.getElementById("mask-readout");
+      const maskCols = `78px repeat(${tokens.length}, minmax(54px, 1fr))`;
+      const maskCellRows = [];
+
+      const maskHeader = document.createElement("div");
+      maskHeader.className = "tf-row";
+      maskHeader.style.gridTemplateColumns = maskCols;
+      maskHeader.innerHTML = `<div></div>${tokens.map(t => `<div class="tf-label">${t}</div>`).join("")}`;
+      maskEl.appendChild(maskHeader);
+
+      fixture.causalMask.forEach((row, i) => {
+        const rowDiv = document.createElement("div");
+        rowDiv.className = "tf-row";
+        rowDiv.style.gridTemplateColumns = maskCols;
+        const cells = [];
+        rowDiv.innerHTML = `<div class="tf-label">${tokens[i]}</div>`;
+
+        row.forEach((v, j) => {
+          const cell = document.createElement("div");
+          cell.className = `tf-cell ${v ? "mask-on" : "mask-off"}`;
+          cell.dataset.row = i;
+          cell.dataset.col = j;
+          cell.textContent = v ? "可见" : "屏蔽";
+          cells.push(cell);
+          rowDiv.appendChild(cell);
+        });
+
+        rowDiv.addEventListener("mouseenter", () => {
+          cells.forEach(c => c.classList.toggle("mask-hl", fixture.causalMask[i][+c.dataset.col]));
+          const visible = row.filter(Boolean).length;
+          maskReadout.textContent = `位置 ${i}（${tokens[i]}）可见前 ${visible} 个 token：${tokens.slice(0, visible).join("、")}`;
+        });
+        rowDiv.addEventListener("mouseleave", () => {
+          cells.forEach(c => c.classList.remove("mask-hl"));
+          maskReadout.textContent = "";
+        });
+
+        maskCellRows.push(cells);
+        maskEl.appendChild(rowDiv);
+      });
+    });
+  </script>
+</body>
+</html>
