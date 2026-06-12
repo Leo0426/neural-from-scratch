@@ -1,0 +1,3 @@
+services:
+  visualizations:
+    platform: linux/arm64

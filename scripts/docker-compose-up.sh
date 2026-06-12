@@ -3,22 +3,24 @@ set -euo pipefail
 
 IMAGE_NAME="${IMAGE_NAME:-neural-from-scratch-visualizations}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
-CONTAINER_NAME="${CONTAINER_NAME:-neural-from-scratch-visualizations}"
 VIS_PORT="${VIS_PORT:-8080}"
 ARCH="${ARCH:-native}"
+DETACH="${DETACH:-0}"
+BUILD="${BUILD:-1}"
+
+compose_files=(-f docker-compose.yml)
 
 case "${ARCH}" in
   native)
     IMAGE_REF="${IMAGE_NAME}:${IMAGE_TAG}"
-    PLATFORM=""
     ;;
   amd64|amd)
     IMAGE_REF="${IMAGE_NAME}:${IMAGE_TAG}-amd64"
-    PLATFORM="linux/amd64"
+    compose_files+=(-f docker-compose.amd64.yml)
     ;;
   arm64|arm)
     IMAGE_REF="${IMAGE_NAME}:${IMAGE_TAG}-arm64"
-    PLATFORM="linux/arm64"
+    compose_files+=(-f docker-compose.arm64.yml)
     ;;
   *)
     echo "Unknown ARCH: ${ARCH}" >&2
@@ -27,18 +29,16 @@ case "${ARCH}" in
     ;;
 esac
 
-docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+export IMAGE_REF
+export VIS_PORT
 
-echo "Visualizations are available at http://localhost:${VIS_PORT}/"
-
-docker_args=(
-  --rm
-  --name "${CONTAINER_NAME}"
-  -p "${VIS_PORT}:80"
-)
-
-if [[ -n "${PLATFORM}" ]]; then
-  docker_args=(--platform "${PLATFORM}" "${docker_args[@]}")
+up_args=(up)
+if [[ "${BUILD}" == "1" ]]; then
+  up_args+=(--build)
+fi
+if [[ "${DETACH}" == "1" ]]; then
+  up_args+=(-d)
 fi
 
-docker run "${docker_args[@]}" "${IMAGE_REF}"
+echo "Visualizations are available at http://localhost:${VIS_PORT}/"
+docker compose "${compose_files[@]}" "${up_args[@]}"

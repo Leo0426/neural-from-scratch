@@ -185,6 +185,13 @@ ARCH=arm64 ./scripts/docker-build.sh
 
 # 启动可视化服务，访问 http://localhost:8080/
 ./scripts/docker-run.sh
+
+# 使用 Docker Compose 启动
+./scripts/docker-compose-up.sh
+
+# 指定架构运行
+ARCH=arm64 ./scripts/docker-run.sh
+ARCH=amd64 ./scripts/docker-run.sh
 ```
 
 可通过环境变量覆盖默认配置：
@@ -192,6 +199,16 @@ ARCH=arm64 ./scripts/docker-build.sh
 ```bash
 IMAGE_TAG=dev ./scripts/docker-build.sh
 IMAGE_TAG=dev VIS_PORT=8090 ./scripts/docker-run.sh
+VIS_PORT=8090 DETACH=1 ./scripts/docker-compose-up.sh
+```
+
+在 Apple Silicon 上优先运行 `ARCH=arm64` 构建出的镜像。若需要运行 AMD64 镜像，请使用 `ARCH=amd64 ./scripts/docker-run.sh`，脚本会自动加上 `--platform linux/amd64`。
+
+Docker Compose 也支持相同的架构参数：
+
+```bash
+ARCH=arm64 ./scripts/docker-compose-up.sh
+ARCH=amd64 ./scripts/docker-compose-up.sh
 ```
 
 双架构镜像 manifest 需要推送到镜像仓库：
