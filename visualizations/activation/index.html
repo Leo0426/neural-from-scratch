@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>激活函数 —— 测试联动动态可视化</title>
+  <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared.css" />
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 </head>
@@ -42,6 +43,16 @@
     const sigmoid = x => 1 / (1 + Math.exp(-x));
     const gelu = x => 0.5 * x * (1 + Math.tanh(Math.sqrt(2 / Math.PI) * (x + 0.044715 * x ** 3)));
     const numericGrad = (fn, x) => (fn(x + 1e-4) - fn(x - 1e-4)) / 2e-4;
+    const plotTheme = {
+      paper_bgcolor: "rgba(0,0,0,0)",
+      plot_bgcolor: "rgba(0,0,0,0)",
+      font: {color: "#36433f", family: "Avenir Next, Helvetica Neue, sans-serif"},
+      xaxis: {gridcolor: "rgba(24,33,31,0.10)", zerolinecolor: "rgba(24,33,31,0.22)"},
+      yaxis: {gridcolor: "rgba(24,33,31,0.10)", zerolinecolor: "rgba(24,33,31,0.22)"},
+      xaxis2: {gridcolor: "rgba(24,33,31,0.10)", zerolinecolor: "rgba(24,33,31,0.22)"},
+      yaxis2: {gridcolor: "rgba(24,33,31,0.10)", zerolinecolor: "rgba(24,33,31,0.22)"},
+      legend: {bgcolor: "rgba(255,253,248,0.76)", bordercolor: "rgba(24,33,31,0.14)", borderwidth: 1}
+    };
 
     async function loadFixture() {
       try {
@@ -65,14 +76,16 @@
         ["relu", x => Math.max(0, x), x => x > 0 ? 1 : 0],
         ["gelu", gelu, x => numericGrad(gelu, x)]
       ];
-      const traces = funcs.flatMap(([name, fn, grad]) => [
-        {x: xs, y: xs.map(fn), name, xaxis: "x", yaxis: "y", mode: "lines"},
-        {x: xs, y: xs.map(grad), name: name + " 导数", xaxis: "x2", yaxis: "y2", mode: "lines", showlegend: false}
+      const colors = ["#0f8f75", "#a66b12", "#286fa8", "#c4493f"];
+      const traces = funcs.flatMap(([name, fn, grad], i) => [
+        {x: xs, y: xs.map(fn), name, xaxis: "x", yaxis: "y", mode: "lines", line: {color: colors[i], width: 3}},
+        {x: xs, y: xs.map(grad), name: name + " 导数", xaxis: "x2", yaxis: "y2", mode: "lines", line: {color: colors[i], width: 3, dash: "dot"}, showlegend: false}
       ]);
-      traces.push({x: [0], y: [sigmoid(0)], name: "动态游标", mode: "markers", marker: {size: 12, color: "#d24b4b"}});
-      traces.push({x: [0], y: [0.25], name: "动态导数", xaxis: "x2", yaxis: "y2", mode: "markers", marker: {size: 12, color: "#d24b4b"}, showlegend: false});
+      traces.push({x: [0], y: [sigmoid(0)], name: "动态游标", mode: "markers", marker: {size: 13, color: "#d99c25", line: {color: "#fffdf8", width: 2}}});
+      traces.push({x: [0], y: [0.25], name: "动态导数", xaxis: "x2", yaxis: "y2", mode: "markers", marker: {size: 13, color: "#d99c25", line: {color: "#fffdf8", width: 2}}, showlegend: false});
 
       Plotly.newPlot("activationPlot", traces, {
+        ...plotTheme,
         grid: {rows: 1, columns: 2, pattern: "independent"},
         margin: {t: 28},
         title: "函数值与导数"
@@ -80,9 +93,9 @@
 
       const layers = Array.from({length: fixture.deepGradient.maxLayers}, (_, i) => i + 1);
       Plotly.newPlot("vanishingPlot", [
-        {x: layers, y: layers.map(l => fixture.deepGradient.sigmoidMaxDerivative ** l), name: "Sigmoid 最大梯度乘积", mode: "lines+markers"},
-        {x: layers, y: layers.map(l => fixture.deepGradient.reluActiveDerivative ** l), name: "ReLU 激活路径梯度", mode: "lines+markers"}
-      ], {yaxis: {type: "log"}, margin: {t: 28}, title: "深层梯度乘积示意"}, {responsive: true});
+        {x: layers, y: layers.map(l => fixture.deepGradient.sigmoidMaxDerivative ** l), name: "Sigmoid 最大梯度乘积", mode: "lines+markers", line: {color: "#c4493f", width: 3}, marker: {color: "#c4493f"}},
+        {x: layers, y: layers.map(l => fixture.deepGradient.reluActiveDerivative ** l), name: "ReLU 激活路径梯度", mode: "lines+markers", line: {color: "#0f8f75", width: 3}, marker: {color: "#0f8f75"}}
+      ], {...plotTheme, yaxis: {type: "log", gridcolor: "rgba(24,33,31,0.10)", zerolinecolor: "rgba(24,33,31,0.22)"}, margin: {t: 28}, title: "深层梯度乘积示意"}, {responsive: true});
 
       const slider = document.getElementById("slider");
       slider.max = xs.length - 1;

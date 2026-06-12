@@ -4,27 +4,182 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>neural-from-scratch 可视化入口</title>
+  <link rel="icon" href="data:," />
   <link rel="stylesheet" href="./shared.css" />
   <style>
-    header { padding: 32px 36px 18px; }
-    h1 { font-size: 30px; }
-    main { padding: 24px 36px 40px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-    .card {
+    main { gap: 16px; }
+    .overview {
+      display: grid;
+      grid-template-columns: 1.2fr repeat(3, minmax(140px, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+    .overview-main,
+    .overview-stat,
+    .path-panel {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, 0.84);
+      box-shadow: var(--shadow);
+      animation: rise-in 420ms cubic-bezier(.2,.8,.2,1) both;
+    }
+    .overview-main {
+      padding: 18px 20px;
       display: grid;
       gap: 10px;
-      min-height: 178px;
-      padding: 18px;
-      border: 1px solid #d9dee7;
-      border-radius: 8px;
-      background: #fff;
-      color: inherit;
-      text-decoration: none;
     }
-    .card:hover { border-color: #8fb4dc; background: #fbfdff; }
-    .card h2 { margin: 0; font-size: 19px; letter-spacing: 0; }
-    .card p { font-size: 14px; }
-    .meta { align-self: end; color: #243447; font-size: 13px; font-variant-numeric: tabular-nums; }
+    .overview-main h2 { margin: 0; font-size: 20px; }
+    .overview-main p { font-size: 14px; }
+    .overview-stat {
+      padding: 18px;
+      display: grid;
+      align-content: center;
+      gap: 4px;
+    }
+    .stat-value {
+      color: var(--ink);
+      font-size: 34px;
+      line-height: 1;
+      font-weight: 780;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-label {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .path-panel {
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+      animation-delay: 80ms;
+    }
+    .path-label {
+      color: var(--accent-2);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+    .path-steps {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .path-step {
+      flex: 0 0 auto;
+      border: 1px solid rgba(15, 143, 117, 0.18);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: #0a5d4d;
+      background: rgba(15, 143, 117, 0.07);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 160ms ease, background 160ms ease;
+    }
+    .path-step:hover {
+      transform: translateY(-1px);
+      background: rgba(15, 143, 117, 0.12);
+    }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .card {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      gap: 14px;
+      min-height: 236px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, 0.82);
+      color: var(--ink);
+      text-decoration: none;
+      box-shadow: var(--shadow);
+      animation: rise-in 560ms cubic-bezier(.2,.8,.2,1) both;
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+    }
+    .card:nth-child(2) { animation-delay: 60ms; }
+    .card:nth-child(3) { animation-delay: 120ms; }
+    .card:nth-child(4) { animation-delay: 180ms; }
+    .card:nth-child(5) { animation-delay: 240ms; }
+    .card:nth-child(6) { animation-delay: 300ms; }
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(120deg, rgba(15,143,117,0.10), transparent 44%),
+        radial-gradient(circle at 100% 0%, rgba(166,107,18,0.10), transparent 42%);
+      opacity: 0;
+      transition: opacity 180ms ease;
+    }
+    .card::after {
+      content: "OPEN";
+      position: absolute;
+      right: 16px;
+      bottom: 14px;
+      color: rgba(24, 33, 31, 0.24);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(15, 143, 117, 0.42);
+      background: rgba(255, 253, 248, 0.98);
+      box-shadow: 0 24px 56px rgba(43, 35, 20, 0.12), 0 0 0 1px rgba(15,143,117,0.06);
+    }
+    .card:hover::before { opacity: 1; }
+    .card h2, .card p, .card .meta { position: relative; }
+    .card h2 { margin: 0; font-size: 20px; letter-spacing: 0; }
+    .card p { font-size: 14px; color: var(--muted); }
+    .module-tags {
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+    .module-tags span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(24,33,31,0.10);
+      border-radius: 999px;
+      padding: 4px 7px;
+      color: var(--soft);
+      background: rgba(255,255,255,0.58);
+      font-size: 12px;
+      line-height: 1;
+    }
+    .meta {
+      align-self: end;
+      color: var(--accent);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 980px) {
+      .overview { grid-template-columns: 1fr 1fr; }
+      .overview-main { grid-column: 1 / -1; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 680px) {
+      .grid,
+      .path-panel { grid-template-columns: 1fr; }
+      .overview { grid-template-columns: repeat(3, 1fr); }
+      .overview-main { grid-column: 1 / -1; }
+      .overview-stat { padding: 14px 12px; }
+      .stat-value { font-size: 28px; }
+      .stat-label { font-size: 12px; }
+      .card { min-height: 212px; }
+      .path-steps { flex-wrap: wrap; overflow-x: visible; }
+    }
   </style>
 </head>
 <body>
@@ -33,40 +188,72 @@
     <p>所有页面都读取各自目录下的 <code>fixture.json</code>，测试用例也读取同一份数据。修改 fixture 后，动画和测试会同步变化。</p>
   </header>
   <main>
+    <section class="overview" aria-label="可视化概览">
+      <div class="overview-main">
+        <h2>从数值验证走到动态直觉</h2>
+        <p>每个页面围绕一个神经网络核心概念，把 fixture 数据、测试断言和交互动画放在同一个学习闭环里。</p>
+      </div>
+      <div class="overview-stat">
+        <span class="stat-value">6</span>
+        <span class="stat-label">个交互模块</span>
+      </div>
+      <div class="overview-stat">
+        <span class="stat-value">16</span>
+        <span class="stat-label">条数值测试</span>
+      </div>
+      <div class="overview-stat">
+        <span class="stat-value">1</span>
+        <span class="stat-label">份共享 fixture 契约</span>
+      </div>
+    </section>
+    <section class="path-panel" aria-label="推荐学习路径">
+      <div class="path-label">PATH</div>
+      <div class="path-steps">
+        <a class="path-step" href="./gradient_descent/">03 梯度</a>
+        <a class="path-step" href="./backprop/">04 链式法则</a>
+        <a class="path-step" href="./activation/">05 激活</a>
+        <a class="path-step" href="./cnn/">07 局部感受野</a>
+        <a class="path-step" href="./attention/">09 上下文聚合</a>
+        <a class="path-step" href="./transformer/">10 生成约束</a>
+      </div>
+    </section>
     <section class="grid">
       <a class="card" href="./gradient_descent/">
         <h2>03 梯度下降</h2>
         <p>动态播放 SGD、Momentum、Adam 在同一损失曲面上的轨迹，观察学习率、起点和步数如何影响收敛。</p>
+        <div class="module-tags"><span>3D 曲面</span><span>优化器轨迹</span><span>梯度检查</span></div>
         <span class="meta">联动 fixture：gradient_descent/fixture.json</span>
       </a>
       <a class="card" href="./backprop/">
         <h2>04 反向传播</h2>
         <p>按链式法则高亮计算图，从损失节点逐步回传到权重和输入，展示梯度范数含义。</p>
+        <div class="module-tags"><span>计算图</span><span>链式法则</span><span>梯度范数</span></div>
         <span class="meta">联动 fixture：backprop/fixture.json</span>
       </a>
       <a class="card" href="./activation/">
         <h2>05 激活函数</h2>
         <p>拖动或播放动态游标，观察输入变化如何影响函数值、导数和深层梯度乘积。</p>
+        <div class="module-tags"><span>函数曲线</span><span>导数</span><span>梯度消失</span></div>
         <span class="meta">联动 fixture：activation/fixture.json</span>
       </a>
       <a class="card" href="./cnn/">
         <h2>07 卷积操作</h2>
         <p>播放卷积核滑动过程，查看输入窗口、卷积核、padding、stride 如何决定输出特征图。</p>
+        <div class="module-tags"><span>卷积窗口</span><span>padding</span><span>特征图</span></div>
         <span class="meta">联动 fixture：cnn/fixture.json</span>
       </a>
       <a class="card" href="./attention/">
         <h2>09 Attention</h2>
         <p>展示 Q/K/V 点积缩放后的 softmax 权重矩阵，观察每个 token 如何聚合上下文。</p>
+        <div class="module-tags"><span>Q/K/V</span><span>softmax</span><span>权重矩阵</span></div>
         <span class="meta">联动 fixture：attention/fixture.json</span>
       </a>
       <a class="card" href="./transformer/">
         <h2>10 Transformer</h2>
         <p>展示正弦位置编码和 causal mask，理解 Transformer block 中顺序信息和生成约束的来源。</p>
+        <div class="module-tags"><span>位置编码</span><span>causal mask</span><span>序列约束</span></div>
         <span class="meta">联动 fixture：transformer/fixture.json</span>
       </a>
-    </section>
-    <section class="panel">
-      <p>启动方式：在项目根目录运行 <code>cd visualizations && python -m http.server 8080</code>，然后打开 <code>http://localhost:8080/</code>。</p>
     </section>
   </main>
 </body>

@@ -4,14 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CNN —— 卷积核滑动动态可视化</title>
+  <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared.css" />
   <style>
     .boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; align-items: start; }
-    .board-title { margin: 0 0 10px; font-size: 16px; font-weight: 650; }
+    .board-title { margin: 0 0 10px; color: var(--soft); font-size: 16px; font-weight: 700; }
     .conv-grid { display: grid; gap: 3px; width: min(100%, 360px); aspect-ratio: 1; }
-    .cell { display: grid; place-items: center; border: 1px solid #c9d2dc; font-size: 12px; font-variant-numeric: tabular-nums; background: #fff; }
-    .active { outline: 3px solid #228a5f; outline-offset: -3px; }
-    .output-active { outline: 3px solid #d24b4b; outline-offset: -3px; }
+    .cell { display: grid; place-items: center; border: 1px solid rgba(24,33,31,0.12); border-radius: 4px; color: var(--ink); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; background: rgba(255,255,255,0.66); transition: transform 130ms ease, outline 130ms ease, box-shadow 130ms ease; }
+    .active { transform: scale(1.06); outline: 3px solid var(--accent); outline-offset: -3px; box-shadow: 0 0 0 5px rgba(15,143,117,0.10); }
+    .output-active { transform: scale(1.06); outline: 3px solid var(--danger); outline-offset: -3px; box-shadow: 0 0 0 5px rgba(196,73,63,0.10); }
   </style>
 </head>
 <body>
@@ -103,8 +104,8 @@
         cell.className = "cell " + className;
         cell.textContent = formatter(value);
         cell.dataset.value = value;
-        const tone = value === 0 ? 255 : Math.max(90, 230 - Math.abs(value) * 40);
-        cell.style.background = value >= 0 ? `rgb(${tone}, ${245}, ${tone})` : `rgb(${245}, ${tone}, ${tone})`;
+        const alpha = Math.min(0.08 + Math.abs(value) * 0.16, 0.72);
+        cell.style.background = value >= 0 ? `rgba(15,143,117,${alpha})` : `rgba(196,73,63,${alpha})`;
         el.appendChild(cell);
       });
     }

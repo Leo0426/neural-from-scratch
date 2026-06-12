@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>梯度下降 —— 测试联动动态可视化</title>
+  <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared.css" />
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 </head>
@@ -46,6 +47,13 @@
     const loss = (x, y) => x*x + 0.2*y*y + 0.5*Math.sin(3*x)*Math.cos(2*y);
     const grad = ([x, y]) => [2*x + 1.5*Math.cos(3*x)*Math.cos(2*y), 0.4*y - Math.sin(3*x)*Math.sin(2*y)];
     const almostEqual = (a, b, tol) => Math.abs(a - b) <= tol;
+    const plotTheme = {
+      paper_bgcolor: "rgba(0,0,0,0)",
+      plot_bgcolor: "rgba(0,0,0,0)",
+      font: {color: "#36433f", family: "Avenir Next, Helvetica Neue, sans-serif"},
+      legend: {bgcolor: "rgba(255,253,248,0.76)", bordercolor: "rgba(24,33,31,0.14)", borderwidth: 1}
+    };
+    const optimizerColors = {sgd: "#c4493f", momentum: "#a66b12", adam: "#0f8f75"};
 
     async function loadFixture() {
       try {
@@ -98,10 +106,10 @@
         : "梯度检查点：失败";
 
       function traces(step) {
-        const base = [{type: "surface", x: xs, y: ys, z, colorscale: "Viridis", opacity: 0.82, showscale: false, name: "loss surface"}];
+        const base = [{type: "surface", x: xs, y: ys, z, colorscale: [[0, "#f3ead8"], [0.45, "#9cc7bb"], [0.72, "#4f9b8a"], [1, "#a66b12"]], opacity: 0.88, showscale: false, name: "loss surface"}];
         return base.concat(Object.entries(paths).map(([name, p]) => {
           const cut = p.slice(0, step + 1);
-          return {type: "scatter3d", mode: "lines+markers", name, x: cut.map(q => q[0]), y: cut.map(q => q[1]), z: cut.map(q => loss(q[0], q[1]) + 0.03), marker: {size: 3}};
+          return {type: "scatter3d", mode: "lines+markers", name, x: cut.map(q => q[0]), y: cut.map(q => q[1]), z: cut.map(q => loss(q[0], q[1]) + 0.03), line: {width: 5, color: optimizerColors[name]}, marker: {size: 3.5, color: optimizerColors[name]}};
         }));
       }
 
@@ -109,8 +117,14 @@
         document.getElementById("step").textContent = current;
         slider.value = current;
         Plotly.react("plot", traces(current), {
+          ...plotTheme,
           margin: {t: 10},
-          scene: {zaxis: {title: "loss"}, xaxis: {title: "x"}, yaxis: {title: "y"}}
+          scene: {
+            bgcolor: "rgba(0,0,0,0)",
+            zaxis: {title: "loss", color: "#66736f", gridcolor: "rgba(24,33,31,0.12)", zerolinecolor: "rgba(24,33,31,0.22)"},
+            xaxis: {title: "x", color: "#66736f", gridcolor: "rgba(24,33,31,0.12)", zerolinecolor: "rgba(24,33,31,0.22)"},
+            yaxis: {title: "y", color: "#66736f", gridcolor: "rgba(24,33,31,0.12)", zerolinecolor: "rgba(24,33,31,0.22)"}
+          }
         }, {responsive: true});
       }
 

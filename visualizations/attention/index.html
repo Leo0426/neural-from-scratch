@@ -4,21 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Attention 机制 —— Q/K/V 权重热力图</title>
+  <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared.css" />
   <style>
     .attn-layout { display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: 20px; align-items: start; }
     .attn-matrix { display: grid; gap: 6px; overflow-x: auto; }
     .attn-row { display: grid; gap: 6px; align-items: center; }
-    .a-label { min-height: 44px; border-radius: 6px; display: grid; place-items: center; font-variant-numeric: tabular-nums; background: #eef3f8; font-weight: 600; }
-    .a-cell { min-height: 44px; border-radius: 6px; display: grid; place-items: center; font-variant-numeric: tabular-nums; border: 1px solid #d9dee7; cursor: default; transition: outline 0.08s; }
-    .a-cell.hl-row { outline: 2px solid rgba(44,123,182,0.4); outline-offset: -2px; }
-    .a-cell.hl-col { outline: 2px solid rgba(44,123,182,0.4); outline-offset: -2px; }
-    .a-cell.hl-both { outline: 3px solid #2c7bb6; outline-offset: -2px; font-weight: 700; }
+    .a-label { min-height: 44px; border: 1px solid var(--line); border-radius: 6px; display: grid; place-items: center; color: var(--soft); font-variant-numeric: tabular-nums; background: rgba(255,255,255,0.72); font-weight: 700; }
+    .a-cell { min-height: 44px; border-radius: 6px; display: grid; place-items: center; color: var(--ink); font-variant-numeric: tabular-nums; border: 1px solid rgba(24,33,31,0.12); cursor: default; transition: transform 0.12s ease, outline 0.08s, box-shadow 0.12s ease; }
+    .a-cell.hl-row { outline: 2px solid rgba(15,143,117,0.42); outline-offset: -2px; }
+    .a-cell.hl-col { outline: 2px solid rgba(166,107,18,0.42); outline-offset: -2px; }
+    .a-cell.hl-both { transform: scale(1.035); outline: 3px solid var(--accent); outline-offset: -2px; box-shadow: 0 0 0 5px rgba(15,143,117,0.08); font-weight: 800; }
     .token-list { display: grid; gap: 8px; }
-    .token { border: 1px solid #d9dee7; border-radius: 8px; padding: 10px 12px; background: #fbfcfd; }
+    .token { border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; background: rgba(255,255,255,0.68); }
     .token b { display: block; margin-bottom: 4px; }
-    .token span { font-size: 13px; color: #53616f; }
-    .readout { margin-top: 10px !important; font-size: 13px; min-height: 1.5em; color: #243447; font-variant-numeric: tabular-nums; }
+    .token span { font-size: 13px; color: var(--muted); }
+    .readout { margin-top: 10px !important; font-size: 13px; min-height: 1.5em; color: var(--accent); font-variant-numeric: tabular-nums; }
     .out-layout { display: grid; gap: 6px; overflow-x: auto; }
     .out-row { display: grid; gap: 6px; align-items: center; }
     @media (max-width: 760px) { .attn-layout { grid-template-columns: 1fr; } }
@@ -96,11 +97,11 @@
     }
 
     function attnColor(v) {
-      return `rgba(44,123,182,${Math.min(0.12 + v * 1.7, 0.92)})`;
+      return `rgba(15,143,117,${Math.min(0.10 + v * 1.45, 0.72)})`;
     }
     function outputColor(v) {
-      const a = Math.min(0.12 + Math.abs(v) * 0.6, 0.9);
-      return v >= 0 ? `rgba(40,160,100,${a})` : `rgba(197,84,62,${a})`;
+      const a = Math.min(0.12 + Math.abs(v) * 0.68, 0.9);
+      return v >= 0 ? `rgba(40,111,168,${a})` : `rgba(196,73,63,${a})`;
     }
 
     loadFixture().then(fixture => {

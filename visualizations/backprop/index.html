@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>反向传播 —— 测试联动动态可视化</title>
+  <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared.css" />
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
@@ -68,13 +69,13 @@
       svg.selectAll("line").data(fixture.links).join("line")
         .attr("x1", d => nodeById[d[0]].x).attr("y1", d => nodeById[d[0]].y)
         .attr("x2", d => nodeById[d[1]].x).attr("y2", d => nodeById[d[1]].y)
-        .attr("stroke", "#9aa8b6").attr("stroke-width", 3);
+        .attr("stroke", "rgba(24,33,31,0.22)").attr("stroke-width", 3);
 
       const g = svg.selectAll("g.node").data(fixture.nodes).join("g")
         .attr("class", "node").attr("transform", d => `translate(${d.x},${d.y})`);
-      g.append("circle").attr("r", 48).attr("fill", "#fff").attr("stroke", "#8fa1b3").attr("stroke-width", 2);
-      g.append("text").attr("text-anchor", "middle").attr("y", -8).attr("font-size", 14).text(d => d.label);
-      g.append("text").attr("text-anchor", "middle").attr("y", 16).attr("font-size", 13).attr("fill", "#53616f").text(d => d.value);
+      g.append("circle").attr("r", 48).attr("fill", "rgba(255,253,248,0.92)").attr("stroke", "rgba(24,33,31,0.24)").attr("stroke-width", 2);
+      g.append("text").attr("text-anchor", "middle").attr("y", -8).attr("font-size", 14).attr("fill", "#18211f").attr("font-weight", 700).text(d => d.label);
+      g.append("text").attr("text-anchor", "middle").attr("y", 16).attr("font-size", 13).attr("fill", "#66736f").text(d => d.value);
 
       let step = 0, timer = null;
 
@@ -82,11 +83,11 @@
         const activeIds = fixture.steps.slice(0, step + 1).map(item => item.id);
         const active = new Set(activeIds);
         g.select("circle").transition().duration(220)
-          .attr("fill", d => active.has(d.id) ? "#d9f0e4" : "#fff")
-          .attr("stroke", d => active.has(d.id) ? "#228a5f" : "#8fa1b3")
+          .attr("fill", d => active.has(d.id) ? "rgba(15,143,117,0.16)" : "rgba(255,253,248,0.92)")
+          .attr("stroke", d => active.has(d.id) ? "#0f8f75" : "rgba(24,33,31,0.24)")
           .attr("r", d => active.has(d.id) ? 53 : 48);
         svg.selectAll("line").transition().duration(220)
-          .attr("stroke", d => active.has(d[0]) && active.has(d[1]) ? "#228a5f" : "#9aa8b6");
+          .attr("stroke", d => active.has(d[0]) && active.has(d[1]) ? "#0f8f75" : "rgba(24,33,31,0.22)");
         document.getElementById("caption").textContent = fixture.steps[step].caption;
       }
 

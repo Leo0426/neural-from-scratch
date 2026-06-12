@@ -173,6 +173,33 @@ uv run jupyter lab
 pytest tests/ -v
 ```
 
+### Docker 可视化镜像
+
+```bash
+# 构建可视化镜像，默认生成 neural-from-scratch-visualizations:latest
+./scripts/docker-build.sh
+
+# 分别构建 AMD64 / ARM64 镜像
+ARCH=amd64 ./scripts/docker-build.sh
+ARCH=arm64 ./scripts/docker-build.sh
+
+# 启动可视化服务，访问 http://localhost:8080/
+./scripts/docker-run.sh
+```
+
+可通过环境变量覆盖默认配置：
+
+```bash
+IMAGE_TAG=dev ./scripts/docker-build.sh
+IMAGE_TAG=dev VIS_PORT=8090 ./scripts/docker-run.sh
+```
+
+双架构镜像 manifest 需要推送到镜像仓库：
+
+```bash
+ARCH=all PUSH=1 IMAGE_NAME=your-registry/neural-from-scratch-visualizations ./scripts/docker-build.sh
+```
+
 ---
 
 ## 学习路径建议
